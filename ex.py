@@ -6,11 +6,20 @@
 # A = vstack((A, B))
 # print(A)
 import numpy as np
+import csv
+import pandas
+
+df = pandas.read_csv('Dataset/VnEmoLex.csv')
+d = {}
+d_rows, d_cols = df.shape
+count = 0
+for index in range(d_rows):
+    lex = df['Vietnamese'][index].strip()
+    lex = lex.replace(' ', '_')
+    if df['Positive'][index] == 1:
+        d[lex] = True
+    else:
+        d[lex] = False
 
 
-a = np.ones(3)
-b = np.zeros(4)
-c = np.ones(3) * (-1)
-d = np.hstack((a, b, c))
-# d.resize(len(d))
 print(d)
