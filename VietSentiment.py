@@ -5,30 +5,17 @@ import operator
 from vncorenlp import VnCoreNLP
 from scipy.sparse import hstack, vstack, csr_matrix, save_npz, load_npz, coo_matrix
 import numpy as np
-import pandas
-import pickle
-import json
 
 vncorenlp_file = r'Dataset/VnCoreNLP-master/VnCoreNLP-1.1.1.jar'
 vncorenlp = VnCoreNLP(vncorenlp_file)
 punctutation = "\"#$%&'()*+,-./:;<=>@[\\]^_`{|}~"
-
-# import Vietnamese Emotion Lexicon Data
-df = pandas.read_csv('Dataset/VnEmoLex.csv')
-VnEmoLex_dict = {}
-d_rows, d_cols = df.shape
-count = 0
-for index in range(d_rows):
-    lex = df['Vietnamese'][index].strip()
-    lex = lex.replace(' ', '_')
-    VnEmoLex_dict[lex] = 0
-
+print('Created vncorenlp object.')
 
 # data file
 positive_input = open("Dataset/SA2016-training_data/SA-training_positive.txt")
 negative_input = open("Dataset/SA2016-training_data/SA-training_negative.txt")
 neutral_input = open("Dataset/SA2016-training_data/SA-training_neutral.txt")
-
+print("Open data file")
 
 def word_seg_comments(input_file):
     comments = []
@@ -48,35 +35,11 @@ def word_seg_comments(input_file):
 positive_comments = word_seg_comments(positive_input)
 negative_comments = word_seg_comments(negative_input)
 neutral_comments = word_seg_comments(neutral_input)
+print('Finished Word Segment')
 
 vncorenlp.close()
+print('End VnCoreNLP Object')
 
-# positive_segment = open('positive_segment.json', 'w')
-# negative_segment = open('negative_segment.json', 'w')
-# neutral_segment = open('neutral_segment.json', 'w')
-#
-# positive_segment.write(json.dumps(positive_comments))
-# negative_segment.write(json.dumps(negative_comments))
-# neutral_segment.write(json.dumps(neutral_comments))
-#
-# positive_segment.close()
-# negative_segment.close()
-# neutral_segment.close()
-
-# positive_segment = open('positive_segment.json', 'r')
-# negative_segment = open('negative_segment.json', 'r')
-# neutral_segment = open('neutral_segment.json', 'r')
-#
-# positive_comments = json.loads(positive_segment.read())
-# negative_comments = json.loads(negative_segment.read())
-# neutral_comments = json.loads(neutral_segment.read())
-#
-# positive_segment.close()
-# negative_segment.close()
-# neutral_segment.close()
-
-
-# create bag of vietnamese emotion words in comments dataset
 def create_bag_of_words(*list_data):
     words_histogram = {}
     for data in list_data:
@@ -93,29 +56,35 @@ def create_bag_of_words(*list_data):
 
 
 bag_of_words = create_bag_of_words(positive_comments, negative_comments, neutral_comments)
-#
+print('Created Bag Of Words.')
 
-# json = json.dumps(bag_of_words)
-# f = open("bag_of_words1.json","w")
-# f.write(json)
-# f.close()
 
-# f = open("bag_of_words.json","r")
-# bag_of_words = json.loads(f.read())
-# f.close()
-#
-# print('Fin save Bag of Words')
+def tf(comment_vector):
+    m = np.amax(comment_vector)
+    return np.true_divide(comment_vector, m) * 0.5 + 0.5 # double normalization 0.5 Term Frequency
 
-n = 3
+
+IDF = np.ones(len(bag_of_words))
+COMMENT_NUMBER = 0
+print("Created IDF and COMMENT_NUMBER")
+
+
+def updateIDF(comment_vector):
+    global IDF
+    for i in range(len(comment_vector)):
+        if comment_vector[i] != 0:
+            IDF[i] += 1
+
+
 def vectorize(comment):
+    global COMMENT_NUMBER
+    COMMENT_NUMBER += 1
     comment_vector = np.zeros(len(bag_of_words))
     for sentence in comment:
         for word in sentence:
-            if word in VnEmoLex_dict:
-                comment_vector[bag_of_words[word]] += n
-            else:
-                comment_vector[bag_of_words[word]] += 1
-    return coo_matrix(comment_vector)
+            comment_vector[bag_of_words[word]] += 1
+    updateIDF(comment_vector)
+    return coo_matrix(tf(comment_vector))
 
 
 def vectorize_all_data(*list_data):
@@ -129,23 +98,33 @@ def vectorize_all_data(*list_data):
 
 # create sparse matrix data
 data_coo = vectorize_all_data(positive_comments, negative_comments, neutral_comments)
-print("data_coo")
-print(data_coo)
+IDF = np.log(COMMENT_NUMBER / IDF)
+print('Created sparse all data matrix')
+print('Computed IDF')
+print('Compute TF-IDF')
+data_coo = data_coo.multiply(IDF)
+print('Computed TF-IDF')
+
 # create labels array
+print('Create labels array')
 positive_labels = np.ones(len(positive_comments))
 negative_labels = np.ones(len(negative_comments)) * (-1)
 neutral_labels = np.zeros(len(neutral_comments))
 labels = np.concatenate((positive_labels, negative_labels, neutral_labels))
+print('Created labels array')
 
-# split dataset to train set and test set
+print('Split to training set, test set')
 from sklearn.model_selection import train_test_split
 X_train, X_test, label_train, label_test = train_test_split(data_coo, labels, test_size=0.33)
 
+print('Training Model')
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 param_grid = {'C': [0.001, 0.01, 0.1, 1, 10]}
-grid = GridSearchCV(LogisticRegression(max_iter=10000), param_grid, n_jobs=-1, pre_dispatch=16, cv=5)
+grid = GridSearchCV(LogisticRegression(), param_grid, n_jobs=-1, pre_dispatch=16, cv=5)
 grid.fit(X_train, label_train)
+print('Finish Train Model')
+
 
 print("Best cross-validation score: {:.2f}".format(grid.best_score_))
 print("Best parameters: ", grid.best_params_)

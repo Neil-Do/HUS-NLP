@@ -88,7 +88,7 @@ X_train, X_test, label_train, label_test = train_test_split(data_coo, labels, te
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 param_grid = {'C': [0.001, 0.01, 0.1, 1, 10]}
-grid = GridSearchCV(LogisticRegression(), param_grid, n_jobs=-1, pre_dispatch=16, cv=5)
+grid = GridSearchCV(LogisticRegression(max_iter=10000), param_grid, n_jobs=-1, pre_dispatch=16, cv=5)
 grid.fit(X_train, label_train)
 
 print("Best cross-validation score: {:.2f}".format(grid.best_score_))

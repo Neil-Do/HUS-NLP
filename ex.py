@@ -6,20 +6,15 @@
 # A = vstack((A, B))
 # print(A)
 import numpy as np
+from scipy.sparse import csr_matrix
 import csv
 import pandas
 
-df = pandas.read_csv('Dataset/VnEmoLex.csv')
-d = {}
-d_rows, d_cols = df.shape
-count = 0
-for index in range(d_rows):
-    lex = df['Vietnamese'][index].strip()
-    lex = lex.replace(' ', '_')
-    if df['Positive'][index] == 1:
-        d[lex] = True
-    else:
-        d[lex] = False
+m = np.array([[1,2,3],[4,5,6],[7,8,9]])
+m = csr_matrix(m)
+c = np.array([0,1,2])
+c = csr_matrix(c)
+m = m.multiply(c)
 
 
-print(d)
+print(m.toarray())
